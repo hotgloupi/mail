@@ -15,4 +15,5 @@ def main():
         print("Unknown command", command)
         return 1
 
-    return commands.all[command].run(args)
+    command = commands.all[command]
+    command.run(command.parse_args(args))
