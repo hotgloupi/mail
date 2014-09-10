@@ -31,6 +31,7 @@ def run(args):
         dir.mkdir()
 
     conn = sqlite3.connect(str(dir / 'db.sqlite3'))
+
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS account (
@@ -44,10 +45,32 @@ def run(args):
 
     conn.execute(
         """
+        CREATE TABLE IF NOT EXISTS contact (
+            id INTEGER PRIMARY KEY NOT NULL,
+            email TEXT,
+            fullname TEXT
+        )
+        """
+    )
+
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS mail (
             id INTEGER PRIMARY KEY NOT NULL,
-            account_id INTEGER,
-            remote_id TEXT
+            account_id INTEGER REFERENCES account (id),
+            remote_id TEXT UNIQUE,
+            sender_id INTEGER REFERENCES contact (id),
+            subject TEXT,
+            date DATETIME
+        )
+        """
+    )
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS mail_recipient (
+            mail_id INTEGER REFERENCES mail (id),
+            recipient_id INTEGER REFERENCES contact (id)
         )
         """
     )
@@ -55,7 +78,7 @@ def run(args):
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS text_content (
-            mail_id INTEGER NOT NULL,
+            mail_id INTEGER REFERENCES mail (id),
             headers TEXT,
             content_type TEXT,
             payload TEXT
@@ -65,7 +88,7 @@ def run(args):
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS binary_content (
-            mail_id INTEGER NOT NULL,
+            mail_id INTEGER REFERENCES mail (id),
             headers TEXT,
             content_type TEXT,
             payload BLOB

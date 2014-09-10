@@ -16,8 +16,10 @@ def run(args):
     for acc in all:
         cl = client.make(conn, acc)
         cl.login()
-        for id in cl.fetch_message_ids():
-            msg = cl.fetch_message(id)
-            if msg is not None:
-                print("Saving", msg.remote_id)
-                msg.save(conn)
+        ids = [
+            id for id in cl.fetch_message_ids()
+            if not message.exists(conn, acc, id)
+        ]
+        for msg in cl.fetch_messages(ids):
+            print('%s: %s at %s' % (msg.sender.fullname, msg.subject, msg.date))
+            msg.save(conn)

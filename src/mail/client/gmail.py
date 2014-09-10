@@ -9,6 +9,10 @@ from mail import message
 class AuthenticationError(Exception):
     pass
 
+def split_seq(seq, size):
+    """ Split up seq in pieces of size (stolen from http://gumuz.looze.net)"""
+    return [seq[i:i+size] for i in range(0, len(seq), size)]
+
 class Client(BaseClient):
 
     type = 'gmail'
@@ -33,29 +37,30 @@ class Client(BaseClient):
         return map(int, data[0].decode('utf8').split(' '))
 
     def fetch_messages(self, ids):
-        response, result = self.imap.uid('FETCH', ','.join(map(str, ids)), '(RFC822)')
+        for some_ids in split_seq(ids, 50):
+            for msg in self._fetch_messages(some_ids):
+                yield msg
+
+    def _fetch_messages(self, ids):
+        response, result = self.imap.uid(
+            'FETCH',
+            ','.join(map(str, ids)),
+            '(BODY.PEEK[] FLAGS X-GM-THRID X-GM-MSGID X-GM-LABELS)'
+        )
         if response != 'OK':
             raise Exception("Cannot fetch messages: " + response)
-        messages = {}
         for part in result:
             if not isinstance(part, tuple):
                 continue
-            match = re.search('UID (\d+)', part[0].decode('utf8'))
-            if not match:
-                print("Ignore non-matching result", part)
-                continue
-
-            id = int(match.group(1))
-            messages[id] = message.parse(
+            remote_id = int(re.search('UID (\d+)', part[0].decode('utf8')).group(1))
+            #thread_id = int(re.search('X-GM-THRID (\d+)', part[0].decode('utf8')).group(0))
+            yield message.parse(
                 conn = self.conn,
                 account = self.account,
-                remote_id = id,
+                remote_id = remote_id,
                 raw_data = part[1]
             )
-        return messages
 
     def fetch_message(self, id):
-        try:
-            return self.fetch_messages([id])[id]
-        except KeyError:
-            return None
+        for msg in self.fetch_messages([id]):
+            return msg # We return the first one (if any)

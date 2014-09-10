@@ -16,4 +16,4 @@ def main():
         return 1
 
     command = commands.all[command]
-    command.run(command.parse_args(args))
+    return command.run(command.parse_args(args))
