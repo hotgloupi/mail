@@ -35,4 +35,5 @@ class Contact:
                 "INSERT INTO contact (id, email, fullname) VALUES (NULL, ?, ?)",
                 (self.mail, self.fullname)
             )
+        return self
 

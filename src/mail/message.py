@@ -142,10 +142,27 @@ def parse(conn, account, remote_id, raw_data):
         date = extract_date(msg),
     )
 
+def fetch(conn,
+          account = None,
+          offset = 0,
+          count = 50):
+    curs = conn.cursor()
+    curs.execute(
+        """
+        SELECT id FROM mail
+        WHERE sender_id is not null
+        ORDER BY date DESC
+        LIMIT %d OFFSET %d
+        """ % (count, offset)
+    )
+    for row in curs.fetchall():
+        yield fetch_one(conn, account, row[0])
+
 def fetch_one(conn, account, id):
     curs = conn.cursor()
-    curs.select(
-        "SELECT id, remote_id, sender_id, subject, date FROM mail WHERE id = ?",
+    curs.execute(
+        """SELECT id, remote_id, sender_id, subject, date
+        FROM mail WHERE id = ?""",
         (id, )
     )
     res = curs.fetchone()
@@ -154,7 +171,11 @@ def fetch_one(conn, account, id):
             account = account,
             id = res[0],
             remote_id = res[1],
-            sender_id = res[2],
+            sender = contact.Contact(id = res[2]).synchronize(conn),
+            recipients = [],
+            subject = res[3],
+            date = res[4],
+            content = None,
         )
 
 def find_one(conn, account, remote_id = None):
