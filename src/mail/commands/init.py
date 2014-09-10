@@ -34,9 +34,10 @@ def run(args):
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS account (
-            email TEXT PRIMARY KEY,
-            login TEXT,
-            password TEXT
+            id INTEGER PRIMARY KEY NOT NULL,
+            email TEXT,
+            type TEXT,
+            authentication TEXT
         )
         """
     )
@@ -44,11 +45,30 @@ def run(args):
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS mail (
-            id INTEGER PRIMARY KEY,
-            remote_id TEXT,
-            subject TEXT,
-            date DATETIME,
-            body TEXT
+            id INTEGER PRIMARY KEY NOT NULL,
+            account_id INTEGER,
+            remote_id TEXT
+        )
+        """
+    )
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS text_content (
+            mail_id INTEGER NOT NULL,
+            headers TEXT,
+            content_type TEXT,
+            payload TEXT
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS binary_content (
+            mail_id INTEGER NOT NULL,
+            headers TEXT,
+            content_type TEXT,
+            payload BLOB
         )
         """
     )
