@@ -29,7 +29,11 @@ class Message:
     def save(self, conn = None):
         if conn is None:
             conn = db.conn()
-        self.sender.synchronize(conn)
+        if self.sender is not None:
+            self.sender.synchronize(conn)
+            sender_id = self.sender.id
+        else:
+            sender_id = None
         for recipient in self.recipients:
             recipient.synchronize(conn)
         cursor = conn.cursor()
@@ -38,7 +42,7 @@ class Message:
             INSERT INTO mail (id, account_id, remote_id, subject, sender_id, date)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (self.id, self.account.id, self.remote_id, self.subject, self.sender.id, self.date)
+            (self.id, self.account.id, self.remote_id, self.subject, sender_id, self.date)
         )
         if self.id is None:
             self.id = cursor.lastrowid
@@ -70,6 +74,8 @@ def extract_message_content(msg):
         headers = list(map(str, part.items()))
         body = part.get_payload(decode = True)
         if body is not None and charset is not None:
+            if charset.startswith('charset='):
+                charset = charset[8:].strip('"') # XXX Stupid parsing bug
             body = body.decode(charset, 'replace')
         content.append((headers, type, body))
     return content
@@ -111,12 +117,19 @@ def extract_contacts(conn, msg, headers):
     return result
 
 def extract_date(msg):
-    date_tuple = email.utils.parsedate_tz(msg['Date'])
+    date_tuple = email.utils.parsedate_tz(str(msg['Date']))
     if date_tuple:
         return datetime.fromtimestamp(email.utils.mktime_tz(date_tuple))
 
 def parse(conn, account, remote_id, raw_data):
     msg = email.message_from_bytes(raw_data)
+    #for k,v in msg.items():
+    #    print(" - %s: %s" % (str(k), str(v)))
+    senders = extract_contacts(conn, msg, ['From'])
+    if senders:
+        sender = senders[0]
+    else:
+        sender = None
     return Message(
         account,
         remote_id,
@@ -125,7 +138,7 @@ def parse(conn, account, remote_id, raw_data):
         recipients = extract_contacts(
             conn, msg, ['To', 'Cc', 'Cci', 'Resend-To']
         ),
-        sender = extract_contacts(conn, msg, ['From'])[0],
+        sender = sender,
         date = extract_date(msg),
     )
 

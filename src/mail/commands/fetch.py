@@ -20,6 +20,6 @@ def run(args):
             id for id in cl.fetch_message_ids()
             if not message.exists(conn, acc, id)
         ]
-        for msg in cl.fetch_messages(ids):
-            print('%s: %s at %s' % (msg.sender.fullname, msg.subject, msg.date))
+        for idx, msg in enumerate(cl.fetch_messages(ids)):
+            print('[%d/%4d] %s: %s at %s' % (idx, len(ids), msg.sender and msg.sender.fullname or "Unknown", msg.subject, msg.date))
             msg.save(conn)
