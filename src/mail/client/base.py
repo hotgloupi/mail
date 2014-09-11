@@ -1,5 +1,7 @@
 import imaplib
 
+import mail
+
 class BaseClient:
     type = None
     imap_host = None
@@ -15,3 +17,11 @@ class BaseClient:
 
     def connect(self):
         self.imap = imaplib.IMAP4_SSL(self.imap_host, self.imap_port)
+
+    def mailboxes(self):
+        res, boxes = self.imap.list()
+        if res != 'OK':
+            raise Exception("Cannot get mailboxes")
+        return [
+            mail.box.parse(box) for box in boxes
+        ]

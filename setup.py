@@ -34,7 +34,7 @@ setuptools.setup(
     name = 'mail',
     license = 'BSD',
     version = "0.1",
-    description = "Tool suite to manage celoxica products.",
+    description = "Terminal mail client, with benefits.",
     package_dir = { '': 'src' },
     packages = setuptools.find_packages('src'),
     test_suite = 'mail',

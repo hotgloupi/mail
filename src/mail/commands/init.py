@@ -95,3 +95,42 @@ def run(args):
         )
         """
     )
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS thread (
+            id INTEGER PRIMARY KEY NOT NULL,
+            remote_id TEXT UNIQUE
+        )
+        """
+    )
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS mail_flag (
+            mail_id INTEGER REFERENCES mail (id),
+            key TEXT,
+            value TEXT
+        )
+        """
+    )
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS mailbox (
+            id INTEGER PRIMARY KEY NOT NULL,
+            name TEXT,
+            account_id INTEGER REFERENCES account (id),
+        )
+        """
+    )
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS mailbox_flag (
+            mailbox_id INTEGER REFERENCES mailbox (id),
+            key TEXT,
+            value TEXT
+        )
+        """
+    )

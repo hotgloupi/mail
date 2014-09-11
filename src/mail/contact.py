@@ -35,5 +35,7 @@ class Contact:
                 "INSERT INTO contact (id, email, fullname) VALUES (NULL, ?, ?)",
                 (self.mail, self.fullname)
             )
+            self.id = curs.lastrowid
+        curs.commit()
         return self
 
