@@ -179,7 +179,7 @@ def fetch(conn,
         """ % (count, offset)
     )
     for row in curs.fetchall():
-        yield fetch_one(conn, account, row[0])
+        yield fetch_one(conn, row[0], account = account)
 
 def fetch_one(conn, id, account_ = None):
     curs = conn.cursor()
@@ -216,7 +216,7 @@ def find_one(conn, account, remote_id = None):
         )
         res = curs.fetchone()
         if res:
-            return fetch_one(conn, account, res[0])
+            return fetch_one(conn, res[0], account = account)
 
 def exists(conn, account, remote_id = None):
     curs = conn.cursor()
