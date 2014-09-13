@@ -4,7 +4,7 @@ import email.utils
 import json
 from datetime import datetime
 
-from . import db, contact
+from . import db, contact, box, account, object
 
 class Message:
 
@@ -16,6 +16,8 @@ class Message:
                  sender,
                  recipients,
                  date,
+                 mailbox,
+                 flags = [],
                  id = None):
         self.id = id
         self.remote_id = remote_id
@@ -25,6 +27,17 @@ class Message:
         self.sender = sender
         self.recipients = recipients
         self.date = date
+        self.mailbox = mailbox
+        self.flags = flags
+        self.uid = self.id and object.to_id('mail', self.id)
+
+
+    @property
+    def pretty_subject(self):
+        subject = self.subject.replace('\r', ' ').replace('\n', ' ').replace('\t', ' ')
+        while '  ' in subject:
+            subject = subject.replace('  ', ' ')
+        return subject
 
     def save(self, conn = None):
         if conn is None:
@@ -36,13 +49,15 @@ class Message:
             sender_id = None
         for recipient in self.recipients:
             recipient.synchronize(conn)
+        self.mailbox.synchronize(conn)
         cursor = conn.cursor()
         cursor.execute(
             """
-            INSERT INTO mail (id, account_id, remote_id, subject, sender_id, date)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO mail (id, account_id, mailbox_id, remote_id, subject, sender_id, date)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (self.id, self.account.id, self.remote_id, self.subject, sender_id, self.date)
+            (self.id, self.account.id, self.mailbox.id, self.remote_id,
+             self.subject, sender_id, self.date)
         )
         if self.id is None:
             self.id = cursor.lastrowid
@@ -63,6 +78,12 @@ class Message:
                 """ % table,
                 (self.id, json.dumps(headers), type, body)
             )
+        for k, v in self.flags:
+            cursor.execute(
+                "INSERT INTO mail_flag (mail_id, key, value) VALUES (?, ?, ?)",
+                (self.id, k, v)
+            )
+
         conn.commit()
 
 
@@ -121,7 +142,7 @@ def extract_date(msg):
     if date_tuple:
         return datetime.fromtimestamp(email.utils.mktime_tz(date_tuple))
 
-def parse(conn, account, remote_id, raw_data):
+def parse(conn, account, remote_id, mailbox, flags, raw_data):
     msg = email.message_from_bytes(raw_data)
     #for k,v in msg.items():
     #    print(" - %s: %s" % (str(k), str(v)))
@@ -140,6 +161,8 @@ def parse(conn, account, remote_id, raw_data):
         ),
         sender = sender,
         date = extract_date(msg),
+        mailbox = mailbox,
+        flags = flags,
     )
 
 def fetch(conn,
@@ -158,23 +181,29 @@ def fetch(conn,
     for row in curs.fetchall():
         yield fetch_one(conn, account, row[0])
 
-def fetch_one(conn, account, id):
+def fetch_one(conn, id, account_ = None):
     curs = conn.cursor()
     curs.execute(
-        """SELECT id, remote_id, sender_id, subject, date
+        """SELECT id, account_id, mailbox_id, remote_id, sender_id, subject, date
         FROM mail WHERE id = ?""",
         (id, )
     )
     res = curs.fetchone()
+    if not res: raise Exception("No such message")
+    if account_ is None:
+        account_ = account.Account(res[1]).load(conn)
+    else:
+        assert account_.id == res[1]
     if res:
         return Message(
-            account = account,
+            account = account_,
             id = res[0],
-            remote_id = res[1],
-            sender = contact.Contact(id = res[2]).synchronize(conn),
+            mailbox = box.Box(account = account, id = res[2]).synchronize(conn),
+            remote_id = res[3],
+            sender = contact.Contact(id = res[4]).synchronize(conn),
             recipients = [],
-            subject = res[3],
-            date = res[4],
+            subject = res[5],
+            date = res[6],
             content = None,
         )
 

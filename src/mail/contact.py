@@ -36,6 +36,6 @@ class Contact:
                 (self.mail, self.fullname)
             )
             self.id = curs.lastrowid
-        curs.commit()
+        conn.commit()
         return self
 

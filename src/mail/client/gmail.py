@@ -19,6 +19,7 @@ class Client(BaseClient):
 
     imap_host = 'imap.gmail.com'
     imap_port = 993
+    mailbox_name = 'INBOX'
 
     def login(self):
         if not self.imap:
@@ -28,7 +29,7 @@ class Client(BaseClient):
             self.logged_in = (imap_login and imap_login[0] == 'OK')
         except imaplib.IMAP4.error:
             raise AuthenticationError()
-        self.imap.select('INBOX')
+        self.imap.select(self.mailbox_name)
 
     def fetch_message_ids(self):
         res, data = self.imap.uid('search', None, 'ALL')
@@ -52,13 +53,30 @@ class Client(BaseClient):
         for part in result:
             if not isinstance(part, tuple):
                 continue
-            remote_id = int(re.search('UID (\d+)', part[0].decode('utf8')).group(1))
-            #thread_id = int(re.search('X-GM-THRID (\d+)', part[0].decode('utf8')).group(0))
+            header = part[0].decode('utf8')
+            remote_id = int(re.search('UID (\d+)', header).group(1))
+            gmail_thread_id = int(re.search('X-GM-THRID (\d+)', header).group(1))
+            gmail_message_id = int(re.search('X-GM-THRID (\d+)', header).group(1))
+            flags = [
+                ('thread-id', '%s-%s' % (self.account.id, gmail_thread_id)),
+                ('message-id', '%s-%s' % (self.account.id, gmail_message_id)),
+            ]
+            gmail_flags = re.search("FLAGS \(([^)]*)\)", header).group(1)
+            seen = False
+            for f in gmail_flags.split():
+                if f == '\\Seen':
+                    seen = True
+
+            flags.append(('seen', seen and 'true' or 'false'))
+            gmail_labels = re.search("X-GM-LABELS \(([^)]*)\)", header).group(1)
+            flags.extend(('label', l.strip('"').replace('\\\\', '\\')) for l in gmail_labels.split(' ') if l)
             yield message.parse(
                 conn = self.conn,
                 account = self.account,
                 remote_id = remote_id,
-                raw_data = part[1]
+                mailbox = self.mailbox,
+                flags = flags,
+                raw_data = part[1],
             )
 
     def fetch_message(self, id):

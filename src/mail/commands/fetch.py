@@ -1,37 +1,45 @@
 import argparse
 
-from mail import db, account, client, message
+from mail import db, account, client, message, object
 
 def parse_args(args):
     parser = argparse.ArgumentParser(prog = 'mail-fetch')
     parser.add_argument(
-        'what',
-        help = 'What kind of stuff do you want to fetch',
-        choices = [
-            'mail',
-            'flags',
-            'box',
-            [],
-        ],
+        'kind',
+        help = 'Stuff to fetch (m[ail], f[lags], b[ox]) or an object',
         nargs = '*',
     )
     return parser.parse_args(args)
 
 
-def fetch_mail(conn, client):
-    ids = [
-        id for id in client.fetch_message_ids()
-        if not message.exists(conn, client.account, id)
-    ]
+def fetch_mail(conn, client, kind):
+    curs = conn.cursor()
+    if object.is_object(kind):
+        curs.execute(
+            "SELECT remote_id FROM mail WHERE id = ?",
+            (object.get_id(kind), )
+        )
+        res = curs.fetchone()
+        if not res:
+            raise Exception("Invalid object '%s'" % kind)
+        ids = [res[0]]
+        should_save = False
+    else:
+        ids = [
+            id for id in client.fetch_message_ids()
+            if not message.exists(conn, client.account, remote_id = id)
+        ]
+        should_save = True
     if not ids:
         print("Everything up-to-date.")
     for idx, msg in enumerate(client.fetch_messages(ids)):
         print('[%d/%4d] %s: %s at %s' % (
             idx + 1, len(ids),
             msg.sender and msg.sender.fullname or "Unknown",
-            msg.subject, msg.date
+            msg.pretty_subject, msg.date
         ))
-        msg.save(conn)
+        if should_save:
+            msg.save(conn)
 
 def run(args):
     conn = db.conn()
@@ -40,12 +48,19 @@ def run(args):
         print('You must add accounts first')
         return 1
 
+    if not args.kind:
+        args.kind = ['mail']
     for acc in all:
         cl = client.make(conn, acc)
         cl.login()
-        print(args.what)
-        for what in args.what:
-            if what == 'mail':
-                fetch_mail(conn, cl)
-            elif what == 'box':
-                print(cl.mailboxes())
+        for kind in args.kind:
+            if kind.lower().startswith('m'): # mail
+                fetch_mail(conn, cl, kind)
+            elif kind.lower().startswith('b'): # box
+                print("Mailboxes:")
+                for m in cl.mailboxes():
+                    m.synchronize(conn)
+                    print('\t-', m)
+            else:
+                print("Invalid kind: '%s'" % kind)
+                return 1

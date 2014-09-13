@@ -12,5 +12,5 @@ def run(args):
         subject = msg.subject.replace('\r', ' ').replace('\n', ' ').replace('\t', ' ')
         while '  ' in subject:
             subject = subject.replace('  ', ' ')
-        print(msg.date, msg.sender.fullname or msg.sender.mail, '[%s]' % subject)
+        print(msg.uid, msg.date, msg.sender.fullname or msg.sender.mail, '[%s]' % subject)
 

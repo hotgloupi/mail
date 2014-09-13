@@ -66,10 +66,10 @@ def decode(s):
     Despite the function's name, the input may still be a unicode
     string. If the input is bytes, it's first decoded to unicode.
     """
-    if isinstance(s, binary_type):
+    if isinstance(s, bytes):
         s = s.decode('latin-1')
-    if not isinstance(s, text_type):
-        return s
+    else:
+        raise Exception("Already unicode")
 
     r = []
     _in = []
@@ -94,7 +94,7 @@ def decode(s):
 def modified_utf7(s):
     # encode to utf-7: '\xff' => b'+AP8-', decode from latin-1 => '+AP8-'
     s_utf7 = s.encode('utf-7').decode('latin-1')
-    return s_utf7[1:-1].replace('/', ',').encode('ascii')
+    return s_utf7[1:-1].replace('/', ',')
 
 def modified_deutf7(s):
     s_utf7 = '+' + s.replace(',', '/') + '-'

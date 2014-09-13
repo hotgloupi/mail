@@ -43,7 +43,13 @@ setuptools.setup(
     },
     entry_points = {
         'console_scripts': [
-            'mail = mail.main:main',
+            'ml = mail.main:main',
         ],
     },
+    install_requires = [
+        'html2text',
+        'mistune',
+        'colorama',
+        'termcolor',
+    ]
 )

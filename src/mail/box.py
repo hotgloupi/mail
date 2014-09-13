@@ -1,6 +1,8 @@
 import os
 import pathlib
 
+from . import utf7
+
 class ConfigDirectoryNotFound(Exception):
     pass
 
@@ -20,17 +22,15 @@ class Box:
     def __init__(self,
                  account,
                  name = None,
-                 labels = None,
+                 flags = None,
                  id = None):
-        assert id is not None or (None not in (name, labels)),\
-                "Either id or both name and labels must be given"
+        assert id is not None or name is not None
         self.account = account
         self.name = name
-        self.labels = labels
+        self.flags = flags
         self.id = id
 
-
-    def _find_id(self, conn):
+    def _find_id(self, curs):
         curs.execute(
             "SELECT id FROM mailbox WHERE name = ? AND account_id = ?",
             (self.name, self.account.id)
@@ -39,8 +39,8 @@ class Box:
         if res:
             return res[0]
 
-    def _fetch(conn):
-        """Fetch name and labels from DB"""
+    def _fetch(self, curs):
+        """Fetch name and flags from DB"""
         curs.execute(
             "SELECT name FROM mailbox WHERE id = ?", (self.id, )
         )
@@ -48,66 +48,82 @@ class Box:
         curs.execute(
             """
             SELECT value FROM mailbox_flag
-            WHERE mailbox_id = ? AND key = 'label'
+            WHERE mailbox_id = ? AND key = 'flag'
             """,
             (self.id, )
         )
-        self.labels = []
-        for row in curs.fetchall():
-            self.labels.append(row[0])
+        self.flags = [row[0] for row in curs.fetchall()]
+        return self
 
-    def _update(conn):
-        """Update name and labels in DB"""
+    def _update(self, curs):
+        """Update name and flags in DB"""
         curs.execute(
             "UPDATE mailbox SET name = ? WHERE id = ?",
             (self.name, self.id)
         )
-        assert self.labels is not None
+        assert self.flags is not None
         curs.execute(
             """
             DELETE FROM mailbox_flag
-            WHERE mailbox_id = ? and key = 'label'
+            WHERE mailbox_id = ? and key = 'flag'
             """,
             (self.id, )
         )
-        for label in self.labels:
+        for flag in self.flags:
             curs.execute(
                 """
                 INSERT INTO mailbox_flag (mailbox_id, key, value)
-                VALUES (?, 'label', ?)
+                VALUES (?, 'flag', ?)
                 """,
-                (self.id, label)
+                (self.id, flag)
             )
+        return self
 
-    def _insert(self, conn):
+    def _insert(self, curs):
         """Let's save the new mailbox in DB"""
         curs.execute(
             "INSERT INTO mailbox (id, name, account_id) VALUES (NULL, ?, ?)",
             (self.name, self.account.id)
         )
         self.id = curs.lastrowid
-        for label in self.labels:
+        if self.flags is None:
+            return self
+        for flag in self.flags:
             curs.execute(
                 """
                 INSERT INTO mailbox_flag (mailbox_id, key, value)
-                VALUES (?, 'label', ?)
+                VALUES (?, 'flag', ?)
                 """,
-                (self.id, label)
+                (self.id, flag)
             )
+        return self
 
     def synchronize(self, conn):
         curs = conn.cursor()
         if self.id is None:
-            self.id = self._find_id(conn)
-        if self.id is not None: # The box already exists in DB
-            if self.name is None:
-                self._fetch(conn)
+            self.id = self._find_id(curs)
+        if self.id is not None:      # The box already exists in DB
+            if None in (self.name, self.flags):
+                self._fetch(curs)
             else:
-                self._update(conn)
+                self._update(curs)
         else:
-            self._insert(conn)
-        curs.commit()
+            self._insert(curs)
+        conn.commit()
         return self
 
-def parse(box):
-    pass
+    def __str__(self):
+        return "<Box {name} ({id}) %s>".format(**self.__dict__) % ' '.join(self.flags)
+
+def all(account, cursor = None):
+    if cursor is None:
+        cursor = db.conn().cursor()
+    cursor.execute("SELECT id FROM mailbox")
+    for row in cursor.fetchall():
+        yield Box(account, id = row[0])._fetch(cursor)
+
+def parse(box, account):
+    box = utf7.decode(box)
+    flags, name = map(lambda s: s.strip('() "'), box.split('"/"'))
+    flags = flags.split()
+    return Box(account, name = name, flags = flags)

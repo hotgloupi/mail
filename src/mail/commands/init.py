@@ -58,6 +58,7 @@ def run(args):
         CREATE TABLE IF NOT EXISTS mail (
             id INTEGER PRIMARY KEY NOT NULL,
             account_id INTEGER REFERENCES account (id),
+            mailbox_id INTEGER REFERENCES mailbox (id),
             remote_id TEXT UNIQUE,
             sender_id INTEGER REFERENCES contact (id),
             subject TEXT,
@@ -120,7 +121,7 @@ def run(args):
         CREATE TABLE IF NOT EXISTS mailbox (
             id INTEGER PRIMARY KEY NOT NULL,
             name TEXT,
-            account_id INTEGER REFERENCES account (id),
+            account_id INTEGER REFERENCES account (id)
         )
         """
     )
@@ -131,6 +132,16 @@ def run(args):
             mailbox_id INTEGER REFERENCES mailbox (id),
             key TEXT,
             value TEXT
+        )
+        """
+    )
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS staged (
+            object TEXT,
+            action TEXT,
+            arguments TEXT
         )
         """
     )

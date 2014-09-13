@@ -1,0 +1,118 @@
+import argparse
+import itertools
+import html2text
+import mistune
+import colorama
+from termcolor import colored
+import textwrap
+
+from mail import message, db, account, object
+
+def parse_args(args):
+    parser = argparse.ArgumentParser(prog = 'mail-show')
+    parser.add_argument(
+        'object',
+        help = 'Object to show',
+        nargs = '+',
+    )
+    return parser.parse_args(args)
+
+
+class TerminalRenderer(mistune.Renderer):
+    def __init__(self):
+        colorama.init()
+        self.start = 0
+        self.indent = 0
+        super().__init__()
+
+    def link(self, link, title, content):
+        res = title and title + ": " or ''
+        res += colored(content, 'blue')
+        return res
+
+    def paragraph(self, txt):
+        return '\n'.join(textwrap.wrap(txt)) + '\n'
+
+    def list(self, body, ordered = True):
+        self.indent = 2
+        self.start = 0
+        return body + '\n' + '-' * 72 + '\n'
+    def list_item(self, txt):
+        self.start += 1
+        return (
+            " " * self.indent + str(self.start) + '. ' + txt + '\n'
+        )
+
+def show_mail(curs, mail, markdown):
+    for line in [
+        colorama.Style.BRIGHT + "  From: " +  str(mail.sender),
+        "  To: " + ' '.join(map(str, mail.recipients)),
+        "  At: " + str(mail.date),
+        "  Subject: " + colored(mail.pretty_subject, 'red', attrs = ['bold']),
+    ]:
+        print(line)
+    print()
+    curs.execute(
+        "SELECT content_type, payload FROM text_content "\
+        "WHERE mail_id = ?",
+        (mail.id, )
+    )
+    for row in curs.fetchall():
+        print(row[0])
+        if row[0] == 'text/html':
+            pass
+            print(markdown.render(html2text.html2text(row[1])))
+        if row[0] == 'text/plain' and False:
+            prev_len = 0
+            for paragraph in row[1].split('\n'):
+                if prev_len < 80:
+                    if len(paragraph) > 79:
+                        print()
+                else:
+                    print()
+                if paragraph.startswith('>'):
+                    pass
+
+                lines = textwrap.wrap(paragraph, width = 79)
+                for line in lines[:-1]:
+                    words = line.split()
+                    spaces = (len(words) - 1) * [' ']
+                    words_length = sum(len(w) for w in words)
+                    spaces_left = (80 - len(line))
+                    word_weights = [
+                        (len(word), pos) for pos, word in enumerate(words[1:])
+                    ]
+                    while spaces_left and word_weights:
+                        for w, i in reversed(sorted(word_weights)):
+                            if not spaces_left: break
+                            spaces[i] += ' '
+                            spaces_left -= 1
+                    parts = map(lambda e: ''.join(e), itertools.zip_longest(spaces, words[1:]))
+                    print(words[0] + ''.join(parts))
+                if lines:
+                    print(lines[-1])#, "]--")
+                prev_len = len(paragraph)
+    curs.execute(
+        "SELECT content_type, headers FROM binary_content "\
+        "WHERE mail_id = ?",
+        (mail.id, )
+    )
+
+    for row in curs.fetchall():
+        print("CONTENT:", row[0])
+    print('-' * 79)
+
+
+
+
+def run(args):
+    conn = db.conn()
+    curs = conn.cursor()
+    markdown = mistune.Markdown(renderer = TerminalRenderer())
+    for acc in account.all():
+        print("Account:", account)
+        for o in args.object:
+            if o.startswith('m'):
+                mail = message.fetch_one(conn, account = acc, id = object.get_id(o))
+                show_mail(curs, mail, markdown)
+
