@@ -50,6 +50,6 @@ setuptools.setup(
         'html2text',
         'mistune',
         'colorama',
-        'termcolor',
+        'blessings',
     ]
 )
