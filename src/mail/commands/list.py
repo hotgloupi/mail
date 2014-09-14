@@ -8,7 +8,7 @@ def parse_args(args):
 
 def run(args):
     conn = db.conn()
-    for msg in message.fetch(conn, count = 200):
+    for msg in message.fetch(conn, count = 20):
         subject = msg.subject.replace('\r', ' ').replace('\n', ' ').replace('\t', ' ')
         while '  ' in subject:
             subject = subject.replace('  ', ' ')

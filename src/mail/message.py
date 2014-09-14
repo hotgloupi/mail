@@ -179,7 +179,7 @@ def fetch(conn,
         """ % (count, offset)
     )
     for row in curs.fetchall():
-        yield fetch_one(conn, row[0], account = account)
+        yield fetch_one(conn, row[0], account_ = account)
 
 def fetch_one(conn, id, account_ = None):
     curs = conn.cursor()
