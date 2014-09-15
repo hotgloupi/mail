@@ -96,6 +96,15 @@ def run(args):
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS external_content (
+            uri TEXT PRIMARY KEY NOT NULL,
+            content_type TEXT,
+            payload BLOB
+        )
+        """
+    )
 
     conn.execute(
         """

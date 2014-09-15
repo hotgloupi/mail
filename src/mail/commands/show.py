@@ -3,9 +3,9 @@ import itertools
 import html2text
 import mistune
 import colorama
-from termcolor import colored
 import blessings
 import textwrap
+import fabulous
 
 from mail import message, db, account, object
 
@@ -29,7 +29,7 @@ class TerminalRenderer(mistune.Renderer):
 
     def link(self, link, title, content):
         res = title and title + ": " or ''
-        res += colored(content, 'blue')
+        res += self.term.blue(content)
         return res
 
     def paragraph(self, txt):
@@ -52,7 +52,7 @@ class TerminalRenderer(mistune.Renderer):
             res.append(words[0] + ''.join(parts))
         if lines:
             res.append(lines[-1])
-        return '\n'.join(res) + '\n'
+        return '\n' +'\n'.join(res) + '\n'
 
     def list(self, body, ordered = True):
         self.indent = 2
@@ -64,11 +64,44 @@ class TerminalRenderer(mistune.Renderer):
             " " * self.indent + str(self.start) + '. ' + txt + '\n'
         )
 
+    def linebreak(self):
+        return '\n\n'
+
     def emphasis(self, txt):
         return self.term.italic + txt + self.term.normal
 
     def block_quote(self, text):
         return text
+
+    def autolink(self, link, is_email = False):
+        import re
+        link = link.replace('\n', '')
+        print(link)
+        s = re.search('\[(.*)\]', link)
+        if s:
+            return self.term.blue(s.group(1))
+        else:
+            return self.term.italic(self.term.blue(link))
+
+    def tag(self, html):
+        return ("LOLOL")
+
+    def image(self, src, title, alt_text):
+        print(src)
+        import requests
+        from fabulous import image
+        from io import BytesIO
+        r = requests.get(src)
+        if r.status_code != 200:
+            print(self.term.red("Cannot fetch %s" % src))
+        else:
+            open('test.jpg', 'wb').write(r.content)
+            for line in image.Image('test.jpg', width = 80):
+                print(line)
+        return "[IMAGE %s (%s)]" % (title or alt_text or '', src)
+
+    def double_emphasis(self, text):
+        return self.term.bold(text)
 
 def print_html(html, markdown):
     print(markdown.render(html2text.html2text(html)))
@@ -107,11 +140,12 @@ def print_text(text):
 
 
 def show_mail(curs, mail, markdown):
+    term = markdown.renderer.term
     for line in [
-        colorama.Style.BRIGHT + "  From: " +  str(mail.sender),
+        term.shadow + "  From: " +  str(mail.sender),
         "  To: " + ' '.join(map(str, mail.recipients)),
         "  At: " + str(mail.date),
-        "  Subject: " + colored(mail.pretty_subject, 'red', attrs = ['bold']),
+        "  Subject: " + mail.pretty_subject + term.normal,
     ]:
         print(line)
     print()

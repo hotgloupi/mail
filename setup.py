@@ -51,5 +51,10 @@ setuptools.setup(
         'mistune',
         'colorama',
         'blessings',
+        'requests',
+    ],
+    dependency_links = [
+        # SETUPTOOLS MAKES ME CRAZY, INSTALL THIS BY HAND
+        #'git+https://github.com/hotgloupi/fabulous.git',
     ]
 )

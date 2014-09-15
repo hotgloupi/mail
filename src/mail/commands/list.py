@@ -1,6 +1,6 @@
 import argparse
 
-from mail import db, account, client, message, pager
+from mail import db, account, client, message, pager, format
 
 def parse_args(args):
     parser = argparse.ArgumentParser(prog = 'mail-fetch')
@@ -12,5 +12,12 @@ def run(args):
         subject = msg.subject.replace('\r', ' ').replace('\n', ' ').replace('\t', ' ')
         while '  ' in subject:
             subject = subject.replace('  ', ' ')
-        print(msg.uid, msg.date, msg.sender.fullname or msg.sender.mail, '[%s]' % subject)
+        print(
+            "%s %-15s %-20s %s" % (
+                msg.uid,
+                format.pretty_date(msg.date),
+                msg.sender.fullname or msg.sender.mail,
+                subject,
+            )
+        )
 

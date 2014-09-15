@@ -39,3 +39,5 @@ class Contact:
         conn.commit()
         return self
 
+    def __str__(self):
+        return "%s <%s>" % (self.fullname, self.mail)
