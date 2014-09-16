@@ -43,7 +43,7 @@ setuptools.setup(
     },
     entry_points = {
         'console_scripts': [
-            'ml = mail.main:main',
+            'mail = mail.main:main',
         ],
     },
     install_requires = [

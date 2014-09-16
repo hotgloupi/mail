@@ -70,8 +70,8 @@ class TerminalRenderer(mistune.Renderer):
 
         if self.old_text:
             self.old_text = False
-            res = fabulous.color.bg256("#111", '    ') + ('\n' + str(fabulous.color.bg256("#111", '    '))).join(res) + '\n'
-            return  fabulous.color.bg256("#111", '    \n')+ fabulous.color.fg256("#aaa", res)
+            res = fabulous.color.bg256("#111", '    ')  + ('\n' + str(fabulous.color.bg256("#111", '    '))).join(res) + '\n'
+            return  fabulous.color.bg256("#111", '    ') + '\n' + colorama.Back.RESET+ fabulous.color.fg256("#aaa", res)
         res = '    ' + ('\n' + '    ').join(res) + '\n'
         return '\n'+res
 
@@ -127,7 +127,7 @@ class TerminalRenderer(mistune.Renderer):
                 print(self.term.red("Cannot fetch %s" % src))
             else:
                 self.is_image = True
-                return '\n'.join(image.Image(BytesIO(r.content), width = 80))
+                return '    ' + '\n    '.join(image.Image(BytesIO(r.content), width = 72))
         except:
             return "[IMAGE %s (%s)]" % (title or alt_text or '', src)
 
