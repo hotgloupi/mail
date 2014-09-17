@@ -6,12 +6,11 @@ import colorama
 import blessings
 import textwrap
 import fabulous
-import requests
 from fabulous import image
 import fabulous.color
 from io import BytesIO
 
-from mail import message, db, account, object
+from mail import message, db, account, object, external
 
 def parse_args(args):
     parser = argparse.ArgumentParser(prog = 'mail-show')
@@ -35,8 +34,8 @@ class TerminalRenderer(mistune.Renderer):
 
     def link(self, link, title, content):
         res = title and title + ": " or ''
-        res += self.term.blue(content)
-        return res
+        res += fabulous.color.blue(content)
+        return fabulous.color.plain(res)
 
     def paragraph(self, txt):
         if self.is_image:
@@ -122,13 +121,13 @@ class TerminalRenderer(mistune.Renderer):
 
     def image(self, src, title, alt_text):
         try:
-            r = requests.get(src.replace('\n', ''))
-            if r.status_code != 200:
-                print(self.term.red("Cannot fetch %s" % src))
-            else:
-                self.is_image = True
-                return '    ' + '\n    '.join(image.Image(BytesIO(r.content), width = 72))
+            uri = src.replace('\n', '')
+            content_type, content = external.get_resource(uri)
+            self.is_image = True
+            return '\n    ' + '\n    '.join(image.Image(BytesIO(content), width = 72))
         except:
+            import traceback
+            traceback.print_exc()
             return "[IMAGE %s (%s)]" % (title or alt_text or '', src)
 
     def double_emphasis(self, text):
