@@ -136,7 +136,13 @@ class TerminalRenderer(mistune.Renderer):
 
 import html.parser
 
-class Parser(html.parser.HTMLParser):
+class Token:
+    def strip(self): return self
+
+class Link(Token):
+    pass
+
+class HTMLParser(html.parser.HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs = True)
         self.stack = []
@@ -150,17 +156,17 @@ class Parser(html.parser.HTMLParser):
         getattr(self, "start_%s" % tag)()
 
     def handle_data(self, data):
+        data = data.replace('\r\n', '\n').replace('\r', '\n')
         if not self.stack:
             self._newline_if_empty()
             self._addstr(data)
             return
-        data = data.replace('\r\n', '\n')
         m = getattr(self, 'data_%s' % self.tag, None)
         if m:
             m(data)
-            #print('.'.join(e[0] for e in self.stack), "HANDLE DATA %s:" % self.tag, data.encode('utf8'))
+            #print('.'.join(e[0] for e in self.stack), "HANDLE DATA %s:" % self.tag, '>', data, '<')
         else:
-            print('.'.join(e[0] for e in self.stack), "IGNORE DATA %s:" % self.tag, data.encode('utf8'))
+            print('.'.join(e[0] for e in self.stack), "IGNORE DATA %s:" % self.tag, data)
 
     def handle_endtag(self, tag):
         self.indent -= 1
@@ -188,23 +194,20 @@ class Parser(html.parser.HTMLParser):
             self.lines.append([])
 
     def _addstr(self, data):
-        if self.line:
-            self.line[-1] += data
-        else:
-            self.line.append(data)
+        data = data.split('\n')
+        self.line.append(data[0])
+        self.lines.extend([el] for el in data[1:])
 
-    def _addblock(self, data):
-        self.line.append(data)
-
-    start_div = _newline_if_empty
+    start_div = _newline
     data_div = _addstr
     def end_div(self): pass
 
     start_br = _newline
-    data_br = _addblock
+    data_br = _addstr
     def end_br(self): pass
 
-    def start_p(self): pass
+    start_p = _newline
+    data_p = _addstr
     def end_p(self): pass
 
     def start_wbr(self): pass
@@ -215,7 +218,8 @@ class Parser(html.parser.HTMLParser):
     data_span = _addstr
     def end_span(self): pass
 
-    def start_a(self):pass
+    def start_a(self):
+        self.line.append(Link())
     data_a = _addstr
     def end_a(self):pass
 
@@ -271,9 +275,7 @@ class Parser(html.parser.HTMLParser):
     def sanitized_lines(self):
         lines = []
         for line in self.lines:
-            s = ''.join(line).strip()
-            if s: lines.append(line)
-            else: lines.append([])
+            lines.append([el.strip() for el in line if el.strip()])
 
         res = []
         i = 0
@@ -291,11 +293,48 @@ class Parser(html.parser.HTMLParser):
             res.pop()
         return res
 
+def paragraph(p, width = 71):
+    lines = []
+    current_line = []
+    current_len = 0
+    for el in p:
+        if isinstance(p, Token):
+            line.append(el)
+            continue
+        if len(el) + current_len <= width:
+            line.append(el)
+            current_len += len(el)
+        else:
+            lines.append(line)
+            line = [el]
+            current_len = len(el)
+    res = []
+    for line in lines[:-1]:
+        words = (el for el in line if not isinstance(el, Token))
+        spaces = (len(words) - 1) * [' ']
+        words_length = sum(len(w) for w in words)
+        spaces_left = (72 - len(line))
+        word_weights = [
+            (len(word), pos) for pos, word in enumerate(words[1:])
+        ]
+        if spaces_left < words_length / 2:
+            while spaces_left and word_weights:
+                for w, i in reversed(sorted(word_weights)):
+                    if not spaces_left: break
+                    spaces[i] += ' '
+                    spaces_left -= 1
+        parts = map(lambda e: ''.join(e), itertools.zip_longest(spaces, words[1:]))
+        res.append(words[0] + ''.join(parts))
+    if lines:
+        res.append(lines[-1])
+
+    return '    ' + ('\n' + '    ').join(res)
+
 def print_html(html, markdown):
-    parser = Parser()
+    parser = HTMLParser()
     parser.feed(html)
     for line in parser.sanitized_lines():
-        print('>', '|'.join(line), '<')
+        print(paragraph(line))
     #print(html.replace('><', '>\n<'))
     #print(markdown.render(html2text.html2text(html)))
 
