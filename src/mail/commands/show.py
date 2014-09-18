@@ -34,8 +34,7 @@ class TerminalRenderer(mistune.Renderer):
 
     def link(self, link, title, content):
         res = title and title + ": " or ''
-        res += fabulous.color.blue(content)
-        return fabulous.color.plain(res)
+        return str(res + fabulous.color.blue(content))
 
     def paragraph(self, txt):
         if self.is_image:
@@ -91,6 +90,8 @@ class TerminalRenderer(mistune.Renderer):
         return self.term.italic + txt + self.term.normal
 
     def block_quote(self, text):
+        self.old_text = True
+        self.has_newline = True
         return text
 
     def autolink(self, link, is_email = False):
@@ -102,19 +103,19 @@ class TerminalRenderer(mistune.Renderer):
         else:
             return self.term.italic(self.term.blue(link))
 
-    has_newline = False
-    def text(self, text):
-        text = text.strip()
-        if text == '>':
-            self.old_text = True
-            self.has_newline = True
-            return ''
-        if not text:
-            self.has_newline = True
-        if text:
-            if self.has_newline:
-                self.has_newline = False
-        return text
+    #has_newline = False
+    #def text(self, text):
+    #    text = text.strip()
+    #    if text == '>':
+    #        self.old_text = True
+    #        self.has_newline = True
+    #        return ''
+    #    if not text:
+    #        self.has_newline = True
+    #    if text:
+    #        if self.has_newline:
+    #            self.has_newline = False
+    #    return text
 
     def tag(self, html):
         return ("LOLOL")
@@ -133,8 +134,170 @@ class TerminalRenderer(mistune.Renderer):
     def double_emphasis(self, text):
         return self.term.bold(text)
 
+import html.parser
+
+class Parser(html.parser.HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs = True)
+        self.stack = []
+        self.lines = []
+        self.indent = 0
+
+    def handle_starttag(self, tag, attrs):
+        self.indent += 1
+        attrs = dict(attrs)
+        self.stack.append((tag, attrs))
+        getattr(self, "start_%s" % tag)()
+
+    def handle_data(self, data):
+        if not self.stack:
+            self._newline_if_empty()
+            self._addstr(data)
+            return
+        data = data.replace('\r\n', '\n')
+        m = getattr(self, 'data_%s' % self.tag, None)
+        if m:
+            m(data)
+            #print('.'.join(e[0] for e in self.stack), "HANDLE DATA %s:" % self.tag, data.encode('utf8'))
+        else:
+            print('.'.join(e[0] for e in self.stack), "IGNORE DATA %s:" % self.tag, data.encode('utf8'))
+
+    def handle_endtag(self, tag):
+        self.indent -= 1
+        getattr(self, "end_%s" % tag)()
+        self.stack.pop()
+
+
+    @property
+    def tag(self):
+        return self.stack[-1][0]
+
+    @property
+    def attrs(self):
+        return self.stack[-1][1]
+
+    @property
+    def line(self):
+        return self.lines[-1]
+
+    def _newline(self):
+        self.lines.append([])
+
+    def _newline_if_empty(self):
+        if not self.lines:
+            self.lines.append([])
+
+    def _addstr(self, data):
+        if self.line:
+            self.line[-1] += data
+        else:
+            self.line.append(data)
+
+    def _addblock(self, data):
+        self.line.append(data)
+
+    start_div = _newline_if_empty
+    data_div = _addstr
+    def end_div(self): pass
+
+    start_br = _newline
+    data_br = _addblock
+    def end_br(self): pass
+
+    def start_p(self): pass
+    def end_p(self): pass
+
+    def start_wbr(self): pass
+    data_wbr = _addstr
+    def end_wbr(self): pass
+
+    def start_span(self): pass
+    data_span = _addstr
+    def end_span(self): pass
+
+    def start_a(self):pass
+    data_a = _addstr
+    def end_a(self):pass
+
+    def start_blockquote(self): pass
+    def end_blockquote(self): pass
+
+    def start_html(self): pass
+    def end_html(self): pass
+
+    def start_head(self): pass
+    def end_head(self): pass
+
+    def start_style(self): pass
+    def end_style(self): pass
+
+    def start_body(self): pass
+    def end_body(self): pass
+
+    def start_hr(self): pass
+    def end_hr(self): pass
+
+    def start_b(self): pass
+    def end_b(self): pass
+
+    def start_font(self): pass
+    def end_font(self): pass
+
+    def start_meta(self): pass
+    def end_meta(self): pass
+
+    def start_title(self):pass
+    def end_title(self): pass
+
+    def start_table(self): pass
+    def end_table(self): pass
+
+    def start_tr(self): pass
+    def end_tr(self): pass
+
+    def start_td(self): pass
+    def end_td(self): pass
+
+    def start_img(self): pass
+    def end_img(self): pass
+
+
+    def start_strong(self): pass
+    def end_strong(self): pass
+
+    def start_tbody(self): pass
+    def end_tbody(self): pass
+
+    def sanitized_lines(self):
+        lines = []
+        for line in self.lines:
+            s = ''.join(line).strip()
+            if s: lines.append(line)
+            else: lines.append([])
+
+        res = []
+        i = 0
+        sz = len(lines)
+        # Skip first empty lines
+        while i < sz and not lines[i]:
+            i += 1
+        while i < len(lines):
+            res.append(lines[i])
+            i += 1
+            if not res[-1]:
+                while i < sz and not lines[i]:
+                    i += 1
+        while res and not res[-1]:
+            res.pop()
+        return res
+
 def print_html(html, markdown):
-    print(markdown.render(html2text.html2text(html)))
+    parser = Parser()
+    parser.feed(html)
+    for line in parser.sanitized_lines():
+        print('>', '|'.join(line), '<')
+    #print(html.replace('><', '>\n<'))
+    #print(markdown.render(html2text.html2text(html)))
 
 
 def print_text(text):
