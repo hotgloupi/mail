@@ -52,6 +52,9 @@ def run(args):
         )
         """
     )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS contact_id ON contact (id)"
+    )
 
     conn.execute(
         """
@@ -66,6 +69,9 @@ def run(args):
         )
         """
     )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS mail_id ON mail (id)"
+    )
 
     conn.execute(
         """
@@ -74,6 +80,9 @@ def run(args):
             recipient_id INTEGER REFERENCES contact (id)
         )
         """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS mail_recipient_mail_id ON mail_recipient (mail_id)"
     )
 
     conn.execute(
@@ -87,6 +96,9 @@ def run(args):
         """
     )
     conn.execute(
+        "CREATE INDEX IF NOT EXISTS text_content_mail_id ON text_content (mail_id)"
+    )
+    conn.execute(
         """
         CREATE TABLE IF NOT EXISTS binary_content (
             mail_id INTEGER REFERENCES mail (id),
@@ -97,6 +109,9 @@ def run(args):
         """
     )
     conn.execute(
+        "CREATE INDEX IF NOT EXISTS binary_content_mail_id ON binary_content (mail_id)"
+    )
+    conn.execute(
         """
         CREATE TABLE IF NOT EXISTS external_content (
             uri TEXT PRIMARY KEY NOT NULL,
@@ -104,6 +119,9 @@ def run(args):
             payload BLOB
         )
         """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS uri ON external_content (uri)"
     )
 
     conn.execute(
