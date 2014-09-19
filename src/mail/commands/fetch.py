@@ -33,13 +33,14 @@ def fetch_mail(conn, client, kind):
     if not ids:
         print("Everything up-to-date.")
     for idx, msg in enumerate(client.fetch_messages(ids)):
-        print('[%d/%4d] %s: %s at %s' % (
+        if should_save:
+            msg.save(conn)
+        print('[%d/%4d] %s %s: %s at %s' % (
             idx + 1, len(ids),
+            msg.uid,
             msg.sender and msg.sender.fullname or "Unknown",
             msg.pretty_subject, msg.date
         ))
-        if should_save:
-            msg.save(conn)
 
 def run(args):
     conn = db.conn()

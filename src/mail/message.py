@@ -29,8 +29,10 @@ class Message:
         self.date = date
         self.mailbox = mailbox
         self.flags = flags
-        self.uid = self.id and object.to_id('mail', self.id)
 
+    @property
+    def uid(self):
+        return self.id and object.to_id('mail', self.id) or None
 
     @property
     def pretty_subject(self):

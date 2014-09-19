@@ -21,128 +21,43 @@ def parse_args(args):
     )
     return parser.parse_args(args)
 
-
-class TerminalRenderer(mistune.Renderer):
-    def __init__(self):
-        colorama.init()
-        self.start = 0
-        self.indent = 0
-        super().__init__()
-        self.term = blessings.Terminal(force_styling = True)
-        self.old_text = False
-        self.is_image = False
-
-    def link(self, link, title, content):
-        res = title and title + ": " or ''
-        return str(res + fabulous.color.blue(content))
-
-    def paragraph(self, txt):
-        if self.is_image:
-            self.is_image = False
-            return txt
-
-        if not txt: return ''
-        res = []
-        lines = textwrap.wrap(txt, width = 71)
-        for line in lines[:-1]:
-            words = line.split()
-            spaces = (len(words) - 1) * [' ']
-            words_length = sum(len(w) for w in words)
-            spaces_left = (72 - len(line))
-            word_weights = [
-                (len(word), pos) for pos, word in enumerate(words[1:])
-            ]
-            if spaces_left < words_length / 2:
-                while spaces_left and word_weights:
-                    for w, i in reversed(sorted(word_weights)):
-                        if not spaces_left: break
-                        spaces[i] += ' '
-                        spaces_left -= 1
-            parts = map(lambda e: ''.join(e), itertools.zip_longest(spaces, words[1:]))
-            res.append(words[0] + ''.join(parts))
-        if lines:
-            res.append(lines[-1])
-        if res == ['&gt;']:
-            self.old_text = True
-            return ''
-
-        if self.old_text:
-            self.old_text = False
-            res = fabulous.color.bg256("#111", '    ')  + ('\n' + str(fabulous.color.bg256("#111", '    '))).join(res) + '\n'
-            return  fabulous.color.bg256("#111", '    ') + '\n' + colorama.Back.RESET+ fabulous.color.fg256("#aaa", res)
-        res = '    ' + ('\n' + '    ').join(res) + '\n'
-        return '\n'+res
-
-    def list(self, body, ordered = True):
-        self.indent = 2
-        self.start = 0
-        return body + '\n' + '-' * 72 + '\n'
-    def list_item(self, txt):
-        self.start += 1
-        return (
-            " " * self.indent + str(self.start) + '. ' + txt + '\n'
-        )
-
-    def linebreak(self):
-        return '\n\n'
-
-    def emphasis(self, txt):
-        return self.term.italic + txt + self.term.normal
-
-    def block_quote(self, text):
-        self.old_text = True
-        self.has_newline = True
-        return text
-
-    def autolink(self, link, is_email = False):
-        import re
-        link = link.replace('\n', '')
-        s = re.search('\[(.*)\]', link)
-        if s:
-            return self.term.blue(s.group(1))
-        else:
-            return self.term.italic(self.term.blue(link))
-
-    #has_newline = False
-    #def text(self, text):
-    #    text = text.strip()
-    #    if text == '>':
-    #        self.old_text = True
-    #        self.has_newline = True
-    #        return ''
-    #    if not text:
-    #        self.has_newline = True
-    #    if text:
-    #        if self.has_newline:
-    #            self.has_newline = False
-    #    return text
-
-    def tag(self, html):
-        return ("LOLOL")
-
-    def image(self, src, title, alt_text):
-        try:
-            uri = src.replace('\n', '')
-            content_type, content = external.get_resource(uri)
-            self.is_image = True
-            return '\n    ' + '\n    '.join(image.Image(BytesIO(content), width = 72))
-        except:
-            import traceback
-            traceback.print_exc()
-            return "[IMAGE %s (%s)]" % (title or alt_text or '', src)
-
-    def double_emphasis(self, text):
-        return self.term.bold(text)
-
 import html.parser
 
 class Token:
-    def strip(self): return self
+    def __init__(self, start, tag, attrs):
+        self.start = start
+        self.tag = tag
+        self.attrs = attrs
 
 class Link(Token):
-    pass
+    def __str__(self):
+        if self.start:
+            return fabulous.color.fg_start((120,120,220))
+        return fabulous.color.fg_end()
+
+class Line(Token):
+    def __str__(self):
+        if self.start:
+            return '-' * 80 + '\n'
+        return ''
+
+def make_color_token(start, end):
+    class _(Token):
+        def __str__(self):
+            if self.start: return start
+            return end
+    return _
+
 
 class HTMLParser(html.parser.HTMLParser):
+
+    import fabulous.color as f
+    token_classes = {
+        'i': make_color_token(f.start_italic(), f.end_italic()),
+        'a': Link,
+        'b': make_color_token(f.start_bold(), f.end_bold())
+    }
+
     def __init__(self):
         super().__init__(convert_charrefs = True)
         self.stack = []
@@ -150,10 +65,17 @@ class HTMLParser(html.parser.HTMLParser):
         self.indent = 0
 
     def handle_starttag(self, tag, attrs):
+        if tag == 'o:p':
+            tag = 'p'
         self.indent += 1
         attrs = dict(attrs)
         self.stack.append((tag, attrs))
-        getattr(self, "start_%s" % tag)()
+        if tag in self.token_classes:
+            self.line.append(
+                self.token_classes[tag](True, tag, attrs)
+            )
+        else:
+            getattr(self, "start_%s" % tag)()
 
     def handle_data(self, data):
         data = data.replace('\r\n', '\n').replace('\r', '\n')
@@ -164,13 +86,21 @@ class HTMLParser(html.parser.HTMLParser):
         m = getattr(self, 'data_%s' % self.tag, None)
         if m:
             m(data)
-            #print('.'.join(e[0] for e in self.stack), "HANDLE DATA %s:" % self.tag, '>', data, '<')
+            #print('.'.join(e[0] for e in self.stack), "HANDLE DATA %s: '%s'" % (self.tag, data))
         else:
-            print('.'.join(e[0] for e in self.stack), "IGNORE DATA %s:" % self.tag, data)
+            if data.strip():
+                print('.'.join(e[0] for e in self.stack), "IGNORE DATA %s:" % self.tag, data)
 
     def handle_endtag(self, tag):
+        if tag == 'o:p':
+            tag = 'p'
         self.indent -= 1
-        getattr(self, "end_%s" % tag)()
+        if tag in self.token_classes:
+            self.line.append(
+                self.token_classes[tag](False, tag, self.attrs)
+            )
+        else:
+            getattr(self, "end_%s" % tag)()
         self.stack.pop()
 
 
@@ -198,6 +128,11 @@ class HTMLParser(html.parser.HTMLParser):
         self.line.append(data[0])
         self.lines.extend([el] for el in data[1:])
 
+    def _append_token(cls):
+        def m(self):
+            self.line.append(cls())
+        return m
+
     start_div = _newline
     data_div = _addstr
     def end_div(self): pass
@@ -218,10 +153,7 @@ class HTMLParser(html.parser.HTMLParser):
     data_span = _addstr
     def end_span(self): pass
 
-    def start_a(self):
-        self.line.append(Link())
     data_a = _addstr
-    def end_a(self):pass
 
     def start_blockquote(self): pass
     def end_blockquote(self): pass
@@ -233,18 +165,25 @@ class HTMLParser(html.parser.HTMLParser):
     def end_head(self): pass
 
     def start_style(self): pass
+    def data_style(self, data): pass # Ignore styles
     def end_style(self): pass
 
     def start_body(self): pass
     def end_body(self): pass
 
-    def start_hr(self): pass
+    def start_hr(self):
+        self._newline()
+        self.line.append(Line(True, 'hr', self.attrs))
+    data_hr = _addstr
     def end_hr(self): pass
 
-    def start_b(self): pass
-    def end_b(self): pass
+    data_b = _addstr
+
+    def start_i(self): pass
+    def end_i(self): pass
 
     def start_font(self): pass
+    data_font = _addstr
     def end_font(self): pass
 
     def start_meta(self): pass
@@ -275,7 +214,7 @@ class HTMLParser(html.parser.HTMLParser):
     def sanitized_lines(self):
         lines = []
         for line in self.lines:
-            lines.append([el.strip() for el in line if el.strip()])
+            lines.append([el for el in line if el])
 
         res = []
         i = 0
@@ -293,51 +232,115 @@ class HTMLParser(html.parser.HTMLParser):
             res.pop()
         return res
 
-def paragraph(p, width = 71):
+def conservative_split(s):
+    res = []
+    idx = 0
+    while idx <= len(s):
+        el = ''
+        while idx < len(s) and s[idx] != ' ':
+            el += s[idx]
+            idx += 1
+        res.append(el)
+        idx += 1
+    return res
+
+def wrap(line, width = 79):
     lines = []
     current_line = []
     current_len = 0
-    for el in p:
-        if isinstance(p, Token):
-            line.append(el)
+    for part in line:
+        if isinstance(part, Token):
+            current_line.append(part)
             continue
-        if len(el) + current_len <= width:
-            line.append(el)
-            current_len += len(el)
-        else:
-            lines.append(line)
-            line = [el]
-            current_len = len(el)
+        current_part = ''
+        start = True
+        for el in conservative_split(part):
+            if not start and len(el) + 1 + current_len <= width:
+                current_part += ' ' + el
+                current_len += len(el) + 1
+            elif start:
+                current_part += el
+                current_len += len(el)
+                start = False
+            else:
+                current_line.append(current_part)
+                lines.append(current_line)
+                current_part = el
+                current_line = []
+                current_len = len(el)
+        current_line.append(current_part)
+    lines.append(current_line)
+
+    #print("LINES:", lines)
+    res = []
+    for parts in lines:
+        cur = []
+        for part in parts:
+            if isinstance(part, Token):
+                cur.append(part)
+            else:
+                for idx, el in enumerate(conservative_split(part)):
+                    if idx:
+                        cur.append(' ')
+                    cur.append(el)
+        res.append(cur)
+    #print("LINE", line, "->", res)
+    return res
+
+def paragraph(p, width = 79):
+    if not p: return []
+    lines = wrap(p, width)
     res = []
     for line in lines[:-1]:
-        words = (el for el in line if not isinstance(el, Token))
-        spaces = (len(words) - 1) * [' ']
-        words_length = sum(len(w) for w in words)
-        spaces_left = (72 - len(line))
-        word_weights = [
-            (len(word), pos) for pos, word in enumerate(words[1:])
-        ]
-        if spaces_left < words_length / 2:
-            while spaces_left and word_weights:
-                for w, i in reversed(sorted(word_weights)):
+        words = {}
+        spaces = {}
+        words_len = 0
+        spaces_len = 0
+        for idx, word in enumerate(line):
+            if isinstance(word, Token):
+                pass
+            elif word == ' ':
+                spaces[idx] = ' '
+                spaces_len += 1
+            else:
+                words[idx] = word
+                words_len += len(word)
+        spaces_left = width - words_len - spaces_len
+        def prev_word(line, idx):
+            for el in line[:idx]:
+                if el != ' ' and not isinstance(el, Token):
+                    return el
+        def next_word(line, idx):
+            for el in line[idx + 1:]:
+                if el != ' ' and not isinstance(el, Token):
+                    return el
+        if spaces_left > 0:
+            words_weight = {}
+            for idx in spaces.keys():
+                words_weight[idx] = len(next_word(line, idx) or '') + len(prev_word(line, idx) or '')
+
+            while spaces_left > 0 and words_weight:
+                for weight, i in reversed(sorted((v, k) for k, v in words_weight.items())):
                     if not spaces_left: break
                     spaces[i] += ' '
                     spaces_left -= 1
-        parts = map(lambda e: ''.join(e), itertools.zip_longest(spaces, words[1:]))
-        res.append(words[0] + ''.join(parts))
+        cur = []
+        for idx, el in enumerate(line):
+            cur.append(spaces.get(idx, words.get(idx, el)))
+        res.append(cur)
     if lines:
         res.append(lines[-1])
 
-    return '    ' + ('\n' + '    ').join(res)
+    return res #'    ' + ('\n' + '    ').join(res)
 
-def print_html(html, markdown):
+def print_html(html):
     parser = HTMLParser()
     parser.feed(html)
-    for line in parser.sanitized_lines():
-        print(paragraph(line))
-    #print(html.replace('><', '>\n<'))
-    #print(markdown.render(html2text.html2text(html)))
-
+    for p in parser.sanitized_lines():
+        if not p:
+            print()
+        for line in paragraph(p):
+            print(''.join(map(str, line)))
 
 def print_text(text):
     prev_len = 0
@@ -371,13 +374,12 @@ def print_text(text):
         prev_len = len(paragraph)
 
 
-def show_mail(curs, mail, markdown):
-    term = markdown.renderer.term
+def show_mail(curs, mail):
     for line in [
-        term.shadow + "  From: " +  str(mail.sender),
+        "  From: " +  str(mail.sender),
         "  To: " + ' '.join(map(str, mail.recipients)),
         "  At: " + str(mail.date),
-        "  Subject: " + mail.pretty_subject + term.normal,
+        "  Subject: " + mail.pretty_subject,
     ]:
         print(line)
     print()
@@ -400,7 +402,7 @@ def show_mail(curs, mail, markdown):
             other_parts.append((row[0], row[1]))
 
     if html_parts:
-        for html in html_parts: print_html(html, markdown)
+        for html in html_parts: print_html(html)
     elif text_parts:
         for text in text_parts: print_text(text)
     else:
@@ -427,11 +429,10 @@ def show_mail(curs, mail, markdown):
 def run(args):
     conn = db.conn()
     curs = conn.cursor()
-    markdown = mistune.Markdown(renderer = TerminalRenderer())
     for acc in account.all():
         print("Account:", account)
         for o in args.object:
             if o.startswith('m'):
                 mail = message.fetch_one(conn, account_ = acc, id = object.get_id(o))
-                show_mail(curs, mail, markdown)
+                show_mail(curs, mail)
 
