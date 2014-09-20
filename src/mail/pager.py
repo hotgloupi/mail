@@ -14,12 +14,15 @@ class Pager:
             with open("/tmp/lol", 'w') as f:
                 p = lambda *args: print(*args, file = f)
                 p("#command")
-                p("r shell echo lol\\n")
+                for k, cmd in self.commands.items():
+                    p("%s shell %s\\n" % (k, cmd))
             subprocess.call(['lesskey', '-o', '/tmp/out', '/tmp/lol'])
             env['LESSKEY'] = '/tmp/out'
+        env['LESSCHARSET'] = 'utf-8'
+        env['LESSUTFBINFMT'] = '*r?' # Normal style
 
         self.process = subprocess.Popen(
-            ['less'],
+            ['less', '-r'], # -r is used for multiline ansi code effect
             stdin = subprocess.PIPE,
             env = env
         )
@@ -31,5 +34,6 @@ class Pager:
             self.process.poll()
 
     def print(self, *args):
-        self.process.stdin.write(' '.join(map(str, args)).encode('utf8') + b'\n')
+        #print((' '.join(map(str, args))))
+        self.process.stdin.write((' '.join(map(str, args)) + '\n').encode('utf8'))
 
