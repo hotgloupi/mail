@@ -1,16 +1,12 @@
 import argparse
 import itertools
-import html2text
-import mistune
-import colorama
-import blessings
 import textwrap
 import fabulous
 from fabulous import image
 import fabulous.color
 from io import BytesIO
 
-from mail import message, db, account, object, external
+from mail import message, db, account, object, external, pager
 
 def parse_args(args):
     parser = argparse.ArgumentParser(prog = 'mail-show')
@@ -55,7 +51,9 @@ class HTMLParser(html.parser.HTMLParser):
     token_classes = {
         'i': make_color_token(f.start_italic(), f.end_italic()),
         'a': Link,
-        'b': make_color_token(f.start_bold(), f.end_bold())
+        'b': make_color_token(f.start_bold(), f.end_bold()),
+        'h1': make_color_token(f.start_bold(), f.end_bold()),
+        'h2': make_color_token(f.start_bold(), f.end_bold()),
     }
 
     def __init__(self):
@@ -179,9 +177,6 @@ class HTMLParser(html.parser.HTMLParser):
 
     data_b = _addstr
 
-    def start_i(self): pass
-    def end_i(self): pass
-
     def start_font(self): pass
     data_font = _addstr
     def end_font(self): pass
@@ -214,19 +209,25 @@ class HTMLParser(html.parser.HTMLParser):
     def sanitized_lines(self):
         lines = []
         for line in self.lines:
-            lines.append([el for el in line if el])
+            lines.append([el for el in line if isinstance(el, Token) or el.strip()])
 
         res = []
         i = 0
         sz = len(lines)
+        def isempty(line):
+            for el in line:
+                if not isinstance(el, Token) and el.strip():
+                    return False
+            return True
         # Skip first empty lines
         while i < sz and not lines[i]:
             i += 1
         while i < len(lines):
             res.append(lines[i])
             i += 1
-            if not res[-1]:
-                while i < sz and not lines[i]:
+            if isempty(res[-1]):
+                while i < sz and isempty(lines[i]):
+                    res[-1].extend(el for el in lines[i] if isinstance(el, Token))
                     i += 1
         while res and not res[-1]:
             res.pop()
@@ -333,14 +334,14 @@ def paragraph(p, width = 79):
 
     return res #'    ' + ('\n' + '    ').join(res)
 
-def print_html(html):
+def print_html(html, pager):
     parser = HTMLParser()
     parser.feed(html)
     for p in parser.sanitized_lines():
         if not p:
-            print()
+            pager.print()
         for line in paragraph(p):
-            print(''.join(map(str, line)))
+            pager.print(''.join(map(str, line)))
 
 def print_text(text):
     prev_len = 0
@@ -375,53 +376,54 @@ def print_text(text):
 
 
 def show_mail(curs, mail):
-    for line in [
-        "  From: " +  str(mail.sender),
-        "  To: " + ' '.join(map(str, mail.recipients)),
-        "  At: " + str(mail.date),
-        "  Subject: " + mail.pretty_subject,
-    ]:
-        print(line)
-    print()
-    curs.execute(
-        "SELECT content_type, payload FROM text_content "\
-        "WHERE mail_id = ?",
-        (mail.id, )
-    )
+    with pager.Pager(commands = 12) as less:
+        for line in [
+            "  From: " +  str(mail.sender),
+            "  To: " + ' '.join(map(str, mail.recipients)),
+            "  At: " + str(mail.date),
+            "  Subject: " + mail.pretty_subject,
+        ]:
+            less.print(line)
+        less.print()
+        curs.execute(
+            "SELECT content_type, payload FROM text_content "\
+            "WHERE mail_id = ?",
+            (mail.id, )
+        )
 
-    html_parts = []
-    text_parts = []
-    other_parts = []
+        html_parts = []
+        text_parts = []
+        other_parts = []
 
-    for row in curs.fetchall():
-        if row[0] == 'text/html':
-            html_parts.append(row[1])
-        elif row[0] == 'text/plain':
-            text_parts.append(row[1])
+        for row in curs.fetchall():
+            if row[0] == 'text/html':
+                html_parts.append(row[1])
+            elif row[0] == 'text/plain':
+                text_parts.append(row[1])
+            else:
+                other_parts.append((row[0], row[1]))
+
+        if html_parts:
+            for html in html_parts: print_html(html, less)
+        elif text_parts:
+            for text in text_parts: print_text(text, less)
         else:
-            other_parts.append((row[0], row[1]))
+            less.print(" --- empty message ---")
 
-    if html_parts:
-        for html in html_parts: print_html(html)
-    elif text_parts:
-        for text in text_parts: print_text(text)
-    else:
-        print(" --- empty message ---")
+        curs.execute(
+            "SELECT content_type, headers, payload FROM binary_content "\
+            "WHERE mail_id = ?",
+            (mail.id, )
+        )
 
-    curs.execute(
-        "SELECT content_type, headers, payload FROM binary_content "\
-        "WHERE mail_id = ?",
-        (mail.id, )
-    )
-
-    for row in curs.fetchall():
-        content_type = row[0]
-        print("CONTENT:", row[0])
-        if content_type.startswith('image/'):
-            for line in image.Image(BytesIO(row[2])):
-                print(line)
-            pass
-        print('-' * 79)
+        for row in curs.fetchall():
+            content_type = row[0]
+            less.print("CONTENT:", row[0])
+            if content_type.startswith('image/'):
+                for line in image.Image(BytesIO(row[2])):
+                    less.print(line)
+                pass
+            less.print('-' * 79)
 
 
 
