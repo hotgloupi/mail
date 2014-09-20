@@ -16,4 +16,8 @@ def main():
         return 1
 
     command = commands.all[command]
-    return command.run(command.parse_args(args))
+    try:
+        ret= command.run(command.parse_args(args))
+        return 2
+    except BrokenPipeError:
+        return 1

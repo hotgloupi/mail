@@ -11,7 +11,8 @@ def parse_args(args):
     )
     parser.add_argument(
         '--all', '-a',
-        help = 'Reply to all'
+        help = 'Reply to all',
+        action = 'store_true',
     )
     return parser.parse_args(args)
 
