@@ -18,7 +18,7 @@ def get_id(value):
     return int(value[1:], base = 16)
 
 def get_kind(value):
-    return self.kinds[value[0]]
+    return kinds[value[0]]
 
 def to_id(kind, id):
     res = "%s%08x" % (to_kinds[kind], id)

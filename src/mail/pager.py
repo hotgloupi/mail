@@ -15,7 +15,7 @@ class Pager:
                 p = lambda *args: print(*args, file = f)
                 p("#command")
                 for k, cmd in self.commands.items():
-                    p("%s shell %s\\n" % (k, cmd))
+                    p("%s shell %s\\nquit\\n" % (k, cmd))
             subprocess.call(['lesskey', '-o', '/tmp/out', '/tmp/lol'])
             env['LESSKEY'] = '/tmp/out'
         env['LESSCHARSET'] = 'utf-8'

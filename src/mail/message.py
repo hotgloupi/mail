@@ -4,7 +4,7 @@ import email.utils
 import json
 from datetime import datetime
 
-from . import db, contact, box, account, object
+from . import db, contact, box, account, object, text
 
 class Message:
 
@@ -88,6 +88,46 @@ class Message:
 
         conn.commit()
 
+    def render(self, curs, mode = 'terminal', width = 80):
+        res = [
+            "  From: " +  str(self.sender),
+            "  To: " + ' '.join(map(str, self.recipients)),
+            "  At: " + str(self.date),
+            "  Subject: " + self.pretty_subject,
+            '',
+        ]
+        curs.execute(
+            "SELECT content_type, payload FROM text_content "\
+            "WHERE mail_id = ?",
+            (self.id, )
+        )
+
+        html_parts = []
+        text_parts = []
+        other_parts = []
+
+        for row in curs.fetchall():
+            if row[0] == 'text/html':
+                html_parts.append(row[1])
+            elif row[0] == 'text/plain':
+                text_parts.append(row[1])
+            else:
+                other_parts.append((row[0], row[1]))
+
+        if html_parts:
+            for html in html_parts:
+                res.extend(
+                    text.render(
+                        text.parse_html(html),
+                        mode = mode,
+                        width = width
+                    )
+                )
+        elif text_parts:
+            for el in text_parts: assert False
+        else:
+            res.append(" --- empty message ---")
+        return res
 
 def extract_message_content(msg):
     content = []
