@@ -43,7 +43,7 @@ def run(args):
                 else:
                     print('>', file = f)
 
-        subprocess.call([os.getenv('EDITOR'), '/tmp/lol.eml'])
+        subprocess.call(os.getenv('EDITOR').split() + ['/tmp/lol.eml'])
 
 
         with open('/tmp/lol.eml') as f:

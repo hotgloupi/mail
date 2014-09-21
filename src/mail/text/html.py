@@ -125,6 +125,10 @@ class HTMLParser(html.parser.HTMLParser):
     data_wbr = _addstr
     def end_wbr(self): pass
 
+    def start_nobr(self): pass
+    data_nobr = _addstr
+    def end_nobr(self): pass
+
     def start_span(self): pass
     data_span = _addstr
     def end_span(self): pass
