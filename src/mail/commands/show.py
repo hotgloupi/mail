@@ -79,7 +79,7 @@ def run(args):
     conn = db.conn()
     curs = conn.cursor()
     for acc in account.all():
-        print("Account:", account)
+        print("Account:", acc)
         for o in args.object:
             if o.startswith('m'):
                 mail = message.fetch_one(conn, account_ = acc, id = object.get_id(o))

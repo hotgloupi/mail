@@ -171,8 +171,6 @@ class HTMLParser(html.parser.HTMLParser):
     def start_title(self):pass
     def end_title(self): pass
 
-    def start_table(self): pass
-    def end_table(self): pass
 
     def start_tr(self): pass
     def end_tr(self): pass
@@ -187,8 +185,17 @@ class HTMLParser(html.parser.HTMLParser):
     def start_strong(self): pass
     def end_strong(self): pass
 
+    def start_table(self): pass
+    def end_table(self): pass
+    def start_thead(self):pass
+    def end_thead(self):pass
+    def start_th(self):pass
+    def end_th(self):pass
     def start_tbody(self): pass
     def end_tbody(self): pass
+
+    def start_input(self):pass
+    def end_input(self):pass
 
     def sanitized_lines(self):
         lines = []

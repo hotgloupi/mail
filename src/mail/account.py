@@ -21,6 +21,8 @@ class Account:
         self.__dict__.update(json.loads(row[2]))
         return self
 
+    def __str__(self):
+        return "%s <%s>" % (self.type, self.email)
 
 def all(cursor = None):
     if cursor == None:

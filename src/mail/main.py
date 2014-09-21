@@ -8,6 +8,8 @@ def main():
     args = sys.argv[1:]
     if not args:
         print("usage: {prog} <command> [args...]".format(**locals()))
+        for cmd, mod in commands.all.items():
+            print("   %-10s" % cmd, mod.__doc__)
         return 1
     command = args[0]
     args = args[1:]
