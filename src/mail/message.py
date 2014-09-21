@@ -240,7 +240,7 @@ def fetch_one(conn, id, account_ = None):
         return Message(
             account = account_,
             id = res[0],
-            mailbox = box.Box(account = account, id = res[2]).synchronize(conn),
+            mailbox = box.Box(account = account_, id = res[2]).synchronize(conn),
             remote_id = res[3],
             sender = contact.Contact(id = res[4]).synchronize(conn),
             recipients = [],

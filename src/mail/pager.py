@@ -18,13 +18,16 @@ class Pager:
     def __enter__(self):
         env = copy.copy(os.environ)
         if self.commands:
-            with open("/tmp/lol", 'w') as f:
-                p = lambda *args: print(*args, file = f)
-                p("#command")
-                for c, k in self.bindings.items():
-                    p("%s quit %s\\n" % (k, c))
-            subprocess.call(['lesskey', '-o', '/tmp/out', '/tmp/lol'])
-            env['LESSKEY'] = '/tmp/out'
+            try:
+                with open("/tmp/lol", 'w') as f:
+                    p = lambda *args: print(*args, file = f)
+                    p("#command")
+                    for c, k in self.bindings.items():
+                        p("%s quit %s\\n" % (k, c))
+                subprocess.call(['lesskey', '-o', '/tmp/out', '/tmp/lol'])
+                env['LESSKEY'] = '/tmp/out'
+            except:
+                pass
         env['LESSCHARSET'] = 'utf-8'
         env['LESSUTFBINFMT'] = '*r?' # Normal style for decode errors
 

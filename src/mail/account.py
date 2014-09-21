@@ -19,6 +19,7 @@ class Account:
         self.email = row[0]
         self.type = row[1]
         self.__dict__.update(json.loads(row[2]))
+        return self
 
 
 def all(cursor = None):
