@@ -8,8 +8,8 @@ def main():
     args = sys.argv[1:]
     if not args:
         print("usage: {prog} <command> [args...]".format(**locals()))
-        for cmd, mod in commands.all.items():
-            print("   %-10s" % cmd, mod.__doc__)
+        for cmd, mod in sorted(commands.all.items()):
+            print("   %-10s" % cmd, mod.short_doc)
         return 1
     command = args[0]
     args = args[1:]
@@ -19,7 +19,7 @@ def main():
 
     command = commands.all[command]
     try:
-        ret= command.run(command.parse_args(args))
+        ret= command.run(args)
         return 2
     except BrokenPipeError:
         return 1

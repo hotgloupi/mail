@@ -1,4 +1,3 @@
-import argparse
 import itertools
 import textwrap
 import fabulous
@@ -8,14 +7,17 @@ from io import BytesIO
 
 from mail import message, db, account, object, external, pager, text
 
-def parse_args(args):
-    parser = argparse.ArgumentParser(prog = 'mail-show')
-    parser.add_argument(
-        'object',
-        help = 'Object to show',
-        nargs = '+',
-    )
-    return parser.parse_args(args)
+__doc__ = """\
+Display a mail.
+
+"""
+arguments = [
+    {
+        'flags': ('object', ),
+        'help': 'Object to show',
+        'nargs': '+'
+    }
+]
 
 def print_text(text):
     prev_len = 0
@@ -71,8 +73,6 @@ def show_mail(curs, mail):
                     less.print(line)
                 pass
             less.print('-' * 79)
-
-
 
 
 def run(args):

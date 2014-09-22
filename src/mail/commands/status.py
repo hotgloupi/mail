@@ -1,11 +1,11 @@
-import argparse
-
 from mail import db, account, client, message, object
 
-def parse_args(args):
-    parser = argparse.ArgumentParser(prog = 'mail-fetch')
-    return parser.parse_args(args)
+__doc__ = """\
+    Display (un)staged mail actions.
+"""
 
+arguments = [
+]
 
 def run(args):
     conn = db.conn()

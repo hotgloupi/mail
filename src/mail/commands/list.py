@@ -1,17 +1,14 @@
-import argparse
-
 from mail import db, account, client, message, pager, format
 
-def parse_args(args):
-    parser = argparse.ArgumentParser(prog = 'mail-fetch')
-    parser.add_argument(
-        '-n',
+arguments = [
+    dict(
+        flags = '-n',
         dest = 'count',
         help = 'Number of mail to display',
         default = 30,
         type = int,
-    )
-    return parser.parse_args(args)
+    ),
+]
 
 def run(args):
     conn = db.conn()

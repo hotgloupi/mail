@@ -1,20 +1,18 @@
 import subprocess
-import argparse
 import os
 
-def parse_args(args):
-    parser = argparse.ArgumentParser(prog = 'mail-reply')
-    parser.add_argument(
-        'mail',
+arguments = [
+    dict(
+        flags = 'mail',
         help = 'Mail to reply to',
         nargs = '+',
-    )
-    parser.add_argument(
-        '--all', '-a',
+    ),
+    dict(
+        flags = ('--all', '-a'),
         help = 'Reply to all',
         action = 'store_true',
-    )
-    return parser.parse_args(args)
+    ),
+]
 
 from mail import object, message, db
 
@@ -31,11 +29,6 @@ def run(args):
             f.write("From: %s\n" % mail.account.email)
             f.write("To: %s\n" % mail.sender)
             f.write("Subject: %s\n" % mail.pretty_subject)
-            f.write('\n\n')
-            f.write("## This line and the lines below won't be included.\n")
-            f.write("## Just move text that you wish to be included above the previous line.\n")
-            f.write("## The three first line (From, To and Subject) are purely informative.\n")
-            f.write("## Recipients, sender, subject, attachments are modifiable later.\n")
             f.write('\n')
             for line in mail.render(conn.cursor(), mode = 'text', width = 72):
                 if line:
@@ -60,7 +53,7 @@ def run(args):
                 lines.append(line.strip('\n'))
         def is_whitespace(line):
             return all((c in ' \r\t\n') for c in line)
-        if all(is_whitespace(line) for line in lines):
+        if all(line.startswith('>') or is_whitespace(line) for line in lines):
             print("Empty reply, aborting")
             return 1
         for line in lines:

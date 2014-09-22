@@ -1,24 +1,22 @@
-import argparse
 import os
 import pathlib
 import sqlite3
 
-def parse_args(args):
-    parser = argparse.ArgumentParser(prog = 'mail-init')
-    parser.add_argument(
-        'directory',
+arguments = [
+    dict(
+        flags = 'directory',
         help = 'Root directory for your mails',
         default = '.',
         type = pathlib.Path,
         action = 'store',
         nargs = '?'
-    )
-    parser.add_argument(
-        '--force', '-f',
+    ),
+    dict(
+        flags = ('--force', '-f'),
         help = 'Force initialization',
         action = 'store_true'
-    )
-    return parser.parse_args(args)
+    ),
+]
 
 def run(args):
     dir = (args.directory / '.mail').absolute()

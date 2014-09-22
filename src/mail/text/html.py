@@ -32,6 +32,7 @@ class HTMLParser(html.parser.HTMLParser):
         'strong': make_color_token(f.start_bold(), f.end_bold()),
         'h1': make_color_token(f.start_bold(), f.end_bold()),
         'h2': make_color_token(f.start_bold(), f.end_bold()),
+        'u': make_color_token(f.start_bold(), f.end_bold()),
     }
 
     def __init__(self):

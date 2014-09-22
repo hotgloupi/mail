@@ -1,16 +1,16 @@
-import argparse
-
 from mail import db, account, client, message, object
 
-def parse_args(args):
-    parser = argparse.ArgumentParser(prog = 'mail-fetch')
-    parser.add_argument(
-        'kind',
+"""\
+Fetch mails or other objects.
+"""
+
+arguments = [
+    dict (
+        flags = 'kind',
         help = 'Stuff to fetch (m[ail], f[lags], b[ox]) or an object',
         nargs = '*',
-    )
-    return parser.parse_args(args)
-
+    ),
+]
 
 def fetch_mail(conn, client, kind):
     curs = conn.cursor()
