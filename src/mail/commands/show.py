@@ -47,7 +47,7 @@ def print_text(text):
             parts = map(lambda e: ''.join(e), itertools.zip_longest(spaces, words[1:]))
             print(words[0] + ''.join(parts))
         if lines:
-            print(lines[-1])#, "]--")
+            print(lines[-1])
         prev_len = len(paragraph)
 
 
@@ -78,10 +78,8 @@ def show_mail(curs, mail):
 def run(args):
     conn = db.conn()
     curs = conn.cursor()
-    for acc in account.all():
-        print("Account:", acc)
-        for o in args.object:
-            if o.startswith('m'):
-                mail = message.fetch_one(conn, account_ = acc, id = object.get_id(o))
-                show_mail(curs, mail)
+    for o in args.object:
+        if o.startswith('m'):
+            mail = message.fetch_one(conn, id = object.get_id(o))
+            show_mail(curs, mail)
 

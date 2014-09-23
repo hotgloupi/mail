@@ -124,10 +124,52 @@ class Message:
                     )
                 )
         elif text_parts:
-            for el in text_parts: assert False
+            for el in text_parts:
+                res.extend(
+                    text.render(
+                        text.parse_text(el),
+                        mode = mode,
+                        width = width,
+                    )
+                )
         else:
             res.append(" --- empty message ---")
         return res
+
+    def mark_as_read(self, conn):
+        curs = conn.cursor()
+        curs.execute(
+            "SELECT value FROM mail_flag WHERE key = 'seen' AND mail_id = ?",
+            (self.id, )
+        )
+        res = curs.fetchone()
+        seen = False
+        flag_insert = True
+        if res:
+            flag_insert = False
+            seen = res[0] == 'true'
+        if seen:
+            return
+
+        if flag_insert:
+            curs.execute(
+                "INSERT INTO mail_flag (mail_id, key, value) VALUES (?, 'seen', 'true')",
+                (self.id, )
+            )
+        else:
+            curs.execute(
+                "UPDATE mail_flag SET value = 'true' WHERE key = 'seen' AND mail_id = ?",
+                (self.id, )
+            )
+        curs.execute(
+            "DELETE FROM staged WHERE object = ? AND action IN ('mark-as-read', 'mark-as-unread')",
+            (object.to_id('mail', self.id), )
+        )
+        curs.execute(
+            "INSERT INTO staged (object, action) VALUES (?, 'mark-as-read')",
+            (object.to_id('mail', self.id), )
+        )
+        conn.commit()
 
 def extract_message_content(msg):
     content = []

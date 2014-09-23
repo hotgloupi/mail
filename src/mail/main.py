@@ -19,7 +19,8 @@ def main():
 
     command = commands.all[command]
     try:
-        ret= command.run(args)
-        return 2
+        return command.run(args)
+    except KeyboardInterrupt:
+        return 130
     except BrokenPipeError:
-        return 1
+        return 141

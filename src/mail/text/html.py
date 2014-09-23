@@ -32,7 +32,10 @@ class HTMLParser(html.parser.HTMLParser):
         'strong': make_color_token(f.start_bold(), f.end_bold()),
         'h1': make_color_token(f.start_bold(), f.end_bold()),
         'h2': make_color_token(f.start_bold(), f.end_bold()),
+        'h3': make_color_token(f.start_bold(), f.end_bold()),
+        'h4': make_color_token(f.start_bold(), f.end_bold()),
         'u': make_color_token(f.start_bold(), f.end_bold()),
+        'small': make_color_token(f.start_italic(), f.end_italic())
     }
 
     def __init__(self):
@@ -48,6 +51,7 @@ class HTMLParser(html.parser.HTMLParser):
         attrs = dict(attrs)
         self.stack.append((tag, attrs))
         if tag in self.token_classes:
+            self._newline_if_empty()
             self.line.append(
                 self.token_classes[tag](True, tag, attrs)
             )
@@ -102,6 +106,7 @@ class HTMLParser(html.parser.HTMLParser):
 
     def _addstr(self, data):
         data = data.split('\n')
+        self._newline_if_empty()
         self.line.append(data[0])
         self.lines.extend([el] for el in data[1:])
 
@@ -145,12 +150,29 @@ class HTMLParser(html.parser.HTMLParser):
     def start_head(self): pass
     def end_head(self): pass
 
+    def start_script(self): pass
+    def end_script(self): pass
+
+    def start_sup(self): pass
+    def end_sup(self): pass
+
+    def start_ol(self): pass
+    def end_ol(self): pass
+    def start_ul(self): pass
+    def end_ul(self): pass
+
+    def start_li(self): pass
+    def end_li(self): pass
+
     def start_style(self): pass
     def data_style(self, data): pass # Ignore styles
     def end_style(self): pass
 
     def start_body(self): pass
     def end_body(self): pass
+
+    def start_center(self): pass
+    def end_center(self): pass
 
     def start_hr(self):
         self._newline()
@@ -182,9 +204,13 @@ class HTMLParser(html.parser.HTMLParser):
     def start_img(self): pass
     def end_img(self): pass
 
+    def start_link(self): pass
+    def end_link(self): pass
 
     def start_strong(self): pass
     def end_strong(self): pass
+    def start_base(self): pass
+    def end_base(self): pass
 
     def start_table(self): pass
     def end_table(self): pass
